@@ -16,5 +16,6 @@ chardet==3.0.4
 idna==2.8
 six==1.13.0
 urllib3==1.25.7
+redis==4.2.2
 virtualenv==16.7.9
 virtualenv-clone==0.5.3
