@@ -6,6 +6,8 @@ import azure.cosmos.documents as documents
 import azure.cosmos.cosmos_client as cosmos_client
 import azure.cosmos.exceptions as exceptions
 from azure.cosmos.partition_key import PartitionKey
+import redis
+import json
 import datetime
 import config
 # from flask_cors import CORS, cross_origin
@@ -16,6 +18,14 @@ DATABASE_ID = config.settings['database_id']
 CONTAINER_ID = config.settings['container_id']
 
 app = Flask(__name__)
+
+# Redis Cache Layer
+hostName = 'twitterwebcache.redis.cache.windows.net'
+accessKey = '43L8ufTJY8VCrOKtrXm5lS0znLvpUFjcIAzCaOrtjPk='
+
+redis_client = redis.StrictRedis(host=hostName, port=6380,
+                      password=accessKey, ssl=True)
+
 # CORS(app)
 
 client = cosmos_client.CosmosClient(HOST, {'masterKey': MASTER_KEY}, user_agent="CosmosDBPythonQuickstart", user_agent_overwrite=True)
@@ -73,8 +83,15 @@ def read_item():
     account_number = request.args.get('account_number')
     print('1111', doc_id, account_number)
     # We can do an efficient point read lookup on partition key and id
-    r = container.read_item(item=doc_id, partition_key=account_number)
-    
+    key = doc_id + '_' + account_number
+    r = {}
+
+    # Caching Layer
+    if redis_client.get(key) is None:
+        r = container.read_item(item=doc_id, partition_key=account_number)
+        redis_client.set(key, json.dumps(r))
+    else:
+        r = json.loads(redis_client.get(key))
     print('Item read by Id {0}'.format(doc_id))
     print('Partition Key: {0}'.format(r.get('partitionKey')))
     print('Subtotal: {0}'.format(r.get('subtotal')))
