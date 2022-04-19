@@ -100,6 +100,28 @@ def read_item():
     return response
 # r = container.read_item(item='SalesOrder1', partition_key='Account1')
 
-# print('1111',r.get('subtotal'))
+@app.route('/box_office_top_movies', methods=['GET'])
+def fetch_box_office_top_movies():
+    key = 'BOX_OFFICE_TOP_MOVIES'
+    movie_list = []
+    if redis_client.get(key) is None:
+        r = container.read_item(item=key, partition_key=key)
+        redis_client.set(key, json.dumps(r.get('movie_list')))
+        movie_list = r.get('movie_list')
+    else:
+        movie_list = json.loads(redis_client.get(key))
+    # print('Item read by Id {0}'.format(key))
+    # print('Partition Key: {0}'.format(r.get('partitionKey')))
+    # print('Subtotal: {0}'.format(r.get('subtotal')))
+    
+    title = []
+    for movie in movie_list:
+        movie_response = container.read_item(item=movie, partition_key=movie)
+        title.append(movie_response.get('title'))
+    response = jsonify({'movie_list': title})
+    response.headers.add('Access-Control-Allow-Origin', '*')
+    return response
+
+# # print('1111',r.get('subtotal'))
 if __name__ == '__main__':
    app.run()
