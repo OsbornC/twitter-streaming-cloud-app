@@ -117,7 +117,7 @@ def fetch_box_office_top_movies():
     title = []
     for movie in movie_list:
         movie_response = container.read_item(item=movie, partition_key=movie)
-        title.append(movie_response.get('title'))
+        title.append(movie_response)
     response = jsonify({'movie_list': title})
     response.headers.add('Access-Control-Allow-Origin', '*')
     return response
