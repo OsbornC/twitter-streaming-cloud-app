@@ -14,8 +14,10 @@ import config
 
 HOST = config.settings['host']
 MASTER_KEY = config.settings['master_key']
-DATABASE_ID = config.settings['database_id']
-CONTAINER_ID = config.settings['container_id']
+IMDB_DATABASE_ID = config.settings['imdb_database_id']
+IMDB_CONTAINER_ID = config.settings['imdb_container_id']
+TWITTER_DATABASE_ID = config.settings['twitter_database_id']
+TWITTER_CONTAINER_ID = config.settings['twitter_container_id']
 
 app = Flask(__name__)
 
@@ -30,21 +32,32 @@ redis_client = redis.StrictRedis(host=hostName, port=6380,
 
 client = cosmos_client.CosmosClient(HOST, {'masterKey': MASTER_KEY}, user_agent="CosmosDBPythonQuickstart", user_agent_overwrite=True)
 try:
-    db = client.create_database(id=DATABASE_ID)
-    print('Database with id \'{0}\' created'.format(DATABASE_ID))
+    imdb_db = client.create_database(id=IMDB_DATABASE_ID)
+    print('Database with id \'{0}\' created'.format(IMDB_DATABASE_ID))
+
+    twitter_db = client.create_database(id=TWITTER_DATABASE_ID)
+    print('Database with id \'{0}\' created'.format(TWITTER_DATABASE_ID))
 
 except exceptions.CosmosResourceExistsError:
-    db = client.get_database_client(DATABASE_ID)
-    print('Database with id \'{0}\' was found'.format(DATABASE_ID))
+    imdb_db = client.get_database_client(IMDB_DATABASE_ID)
+    print('Database with id \'{0}\' was found'.format(IMDB_DATABASE_ID))
+
+    twitter_db = client.get_database_client(TWITTER_DATABASE_ID)
+    print('Database with id \'{0}\' was found'.format(TWITTER_DATABASE_ID))
 
 # setup container for this sample
 try:
-    container = db.create_container(id=CONTAINER_ID, partition_key=PartitionKey(path='/partitionKey'))
-    print('Container with id \'{0}\' created'.format(CONTAINER_ID))
+    imdb_container = imdb_db.create_container(id=IMDB_CONTAINER_ID, partition_key=PartitionKey(path='/partitionKey'))
+    print('Container with id \'{0}\' created'.format(IMDB_CONTAINER_ID))
+    
+    twitter_container = twitter_db.create_container(id=TWITTER_CONTAINER_ID, partition_key=PartitionKey(path='/partitionKey'))
+    print('Container with id \'{0}\' created'.format(TWITTER_CONTAINER_ID))
 
 except exceptions.CosmosResourceExistsError:
-    container = db.get_container_client(CONTAINER_ID)
-    print('Container with id \'{0}\' was found'.format(CONTAINER_ID))
+    imdb_container = imdb_db.get_container_client(IMDB_CONTAINER_ID)
+    print('Container with id \'{0}\' was found'.format(IMDB_CONTAINER_ID))
+    twitter_container = imdb_db.get_container_client(TWITTER_CONTAINER_ID)
+    print('Container with id \'{0}\' was found'.format(TWITTER_CONTAINER_ID))
 
 
 @app.route('/')
@@ -78,17 +91,15 @@ def test():
 
 @app.route('/read', methods=['GET'])
 def read_item():
-    print('\nReading Item by Id\n')
     doc_id = request.args.get('doc_id')
     account_number = request.args.get('account_number')
-    print('1111', doc_id, account_number)
     # We can do an efficient point read lookup on partition key and id
     key = doc_id + '_' + account_number
     r = {}
 
     # Caching Layer
     if redis_client.get(key) is None:
-        r = container.read_item(item=doc_id, partition_key=account_number)
+        r = imdb_container.read_item(item=doc_id, partition_key=account_number)
         redis_client.set(key, json.dumps(r))
     else:
         r = json.loads(redis_client.get(key))
@@ -105,7 +116,7 @@ def fetch_box_office_top_movies():
     key = 'BOX_OFFICE_TOP_MOVIES'
     movie_list = []
     if redis_client.get(key) is None:
-        r = container.read_item(item=key, partition_key=key)
+        r = imdb_container.read_item(item=key, partition_key=key)
         redis_client.set(key, json.dumps(r.get('movie_list')))
         movie_list = r.get('movie_list')
     else:
@@ -116,12 +127,19 @@ def fetch_box_office_top_movies():
     
     title = []
     for movie in movie_list:
-        movie_response = container.read_item(item=movie, partition_key=movie)
+        movie_response = imdb_container.read_item(item=movie, partition_key=movie)
         title.append(movie_response)
     response = jsonify({'movie_list': title})
     response.headers.add('Access-Control-Allow-Origin', '*')
     return response
 
-# # print('1111',r.get('subtotal'))
+@app.route('/movie_related_tweets', methods=['GET'])
+def fetch_movie_related_tweets():
+    movie_list = []
+    tweet_data = twitter_container.read_item(item="tt4123432", partition_key="tt4123432")
+    response = jsonify({'movie_list': tweet_data.get('movie_list')})
+    response.headers.add('Access-Control-Allow-Origin', '*')
+    return response
+
 if __name__ == '__main__':
    app.run()
