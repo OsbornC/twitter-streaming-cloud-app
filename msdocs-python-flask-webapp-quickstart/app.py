@@ -56,7 +56,7 @@ try:
 except exceptions.CosmosResourceExistsError:
     imdb_container = imdb_db.get_container_client(IMDB_CONTAINER_ID)
     print('Container with id \'{0}\' was found'.format(IMDB_CONTAINER_ID))
-    twitter_container = imdb_db.get_container_client(TWITTER_CONTAINER_ID)
+    twitter_container = twitter_db.get_container_client(TWITTER_CONTAINER_ID)
     print('Container with id \'{0}\' was found'.format(TWITTER_CONTAINER_ID))
 
 
@@ -137,7 +137,8 @@ def fetch_box_office_top_movies():
 def fetch_movie_related_tweets():
     movie_list = []
     tweet_data = twitter_container.read_item(item="tt4123432", partition_key="tt4123432")
-    response = jsonify({'movie_list': tweet_data.get('movie_list')})
+    print(tweet_data)
+    response = jsonify({'movie_list': tweet_data.get('tweet_ids')})
     response.headers.add('Access-Control-Allow-Origin', '*')
     return response
 
